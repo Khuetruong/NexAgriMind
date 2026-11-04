@@ -1,0 +1,26 @@
+# Chạy thử trên máy phát triển: một điểm "country" (VN) và một "core".
+# Neo4j và Qdrant đã khai báo sẵn cho các bước sau (đồ thị tri thức, tìm kiếm theo nghĩa).
+services:
+  agrimind-vn:
+    build: .
+    environment:
+      AGRIMIND_ROLE: country
+      AGRIMIND_COUNTRY: VN
+      AGRIMIND_LLM_URL: ${AGRIMIND_LLM_URL:-}
+    ports: ["8000:8000"]
+  agrimind-core:
+    build: .
+    environment:
+      AGRIMIND_ROLE: core
+      AGRIMIND_LLM_URL: ${AGRIMIND_LLM_URL:-}
+    ports: ["8001:8000"]
+  neo4j:
+    image: neo4j:5.26-community
+    environment:
+      NEO4J_AUTH: neo4j/agrimind-dev
+    ports: ["7474:7474", "7687:7687"]
+    profiles: [graph]
+  qdrant:
+    image: qdrant/qdrant:v1.12.5
+    ports: ["6333:6333"]
+    profiles: [vector]
