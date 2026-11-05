@@ -1,0 +1,58 @@
+# Quy tắc cảnh báo BẢN NHÁP cho bản sao số mức 2 (A08).
+# Ngưỡng ở đây là điểm khởi đầu để chạy thử phần mềm, CHƯA được chuyên gia duyệt.
+# Chuyên gia từng ngành sửa ngưỡng theo loài, giai đoạn, vùng rồi ghi expert_approved + approved_by.
+# Cảnh báo chỉ kèm ĐỀ XUẤT; hệ thống không tự điều khiển thiết bị hay cho thuốc.
+rules:
+  - id: aq-do-thap
+    name_vi: "Oxy hòa tan thấp"
+    sectors: [aquaculture]
+    metric: do
+    op: "<"
+    threshold: 3.0
+    for_readings: 2
+    risk_level: 2
+    message: "Oxy hòa tan dưới 3 mg/L hai lần đo liền."
+    suggestion: "Kiểm tra quạt nước, máy sục khí; theo dõi tôm/cá nổi đầu; cân nhắc giảm cho ăn bữa kế tiếp."
+    source: "Bản nháp, cần chuyên gia thủy sản xác nhận ngưỡng theo loài"
+  - id: aq-nh3-cao
+    name_vi: "NH3 cao"
+    sectors: [aquaculture]
+    metric: nh3
+    op: ">"
+    threshold: 0.1
+    risk_level: 2
+    message: "NH3 vượt 0,1 mg/L."
+    suggestion: "Đo lại pH và nhiệt độ (NH3 độc hơn khi cao); xem lượng thức ăn dư; hỏi kỹ sư trước khi dùng hoá chất."
+    source: "Bản nháp, cần chuyên gia thủy sản xác nhận"
+  - id: po-nong-chuong
+    name_vi: "Chuồng gà quá nóng"
+    sectors: [poultry, livestock]
+    metric: temperature
+    op: ">"
+    threshold: 32
+    for_readings: 2
+    risk_level: 2
+    message: "Nhiệt độ chuồng trên 32°C hai lần đo liền."
+    suggestion: "Tăng thông gió, làm mát; bảo đảm đủ nước uống sạch; theo dõi lượng ăn và tỷ lệ đẻ."
+    source: "Bản nháp, cần chuyên gia chăn nuôi xác nhận theo giống và tuổi"
+  - id: cr-dat-kho
+    name_vi: "Đất khô"
+    sectors: [crop]
+    metric: soil_moisture
+    op: "<"
+    threshold: 20
+    for_readings: 3
+    risk_level: 1
+    message: "Độ ẩm đất dưới 20% ba lần đo liền."
+    suggestion: "Xem lịch tưới và dự báo mưa; ưu tiên tưới giai đoạn ra hoa, đậu quả."
+    source: "Bản nháp, cần chuyên gia cây trồng xác nhận theo loại cây và đất"
+  - id: aq-ph-bat-thuong
+    name_vi: "pH bất thường mạnh"
+    sectors: [aquaculture]
+    metric: ph
+    op: ">"
+    threshold: 9.5
+    risk_level: 3
+    message: "pH trên 9,5."
+    suggestion: "Báo kỹ sư hoặc chuyên gia ngay; không tự xử lý bằng hoá chất khi chưa có hướng dẫn."
+    source: "Bản nháp, cần chuyên gia thủy sản xác nhận"

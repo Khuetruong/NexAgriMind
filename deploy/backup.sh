@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Sao lưu hằng ngày cho một điểm AgriMind (chạy bằng cron trên máy chủ).
 #   0 2 * * *  /opt/nexagrimind/deploy/backup.sh /opt/nexagrimind/deploy/vn /backup/agrimind
-# Lưu: kho tài liệu, nhật ký kiểm toán, danh sách khoá (chỉ mã băm), bản chụp Qdrant.
+# Lưu: kho tài liệu, nhật ký kiểm toán, kho dữ liệu trại (đã bỏ nhận dạng), kho mô hình, danh sách khoá (chỉ mã băm), bản chụp Qdrant.
 # Đồ thị tri thức nằm trong git (data/kg) nên không cần sao lưu Neo4j; nạp lại bằng agrimind-kg.
 # Bản sao lưu của điểm trong nước PHẢI lưu trong nước (A07).
 set -euo pipefail
@@ -14,7 +14,7 @@ mkdir -p "$OUT"
 cd "$STACK_DIR"
 set -a; [ -f .env ] && . ./.env; set +a
 
-docker compose exec -T agrimind tar -C /var/lib/agrimind -czf - corpus audit > "$OUT/agrimind-data.tgz"
+docker compose exec -T agrimind tar -C /var/lib/agrimind -czf - corpus audit lake models > "$OUT/agrimind-data.tgz"
 cp clients.yaml "$OUT/clients.yaml"
 
 # Bản chụp Qdrant qua API nội bộ (gọi từ trong container agrimind vì Qdrant không mở cổng ra ngoài)

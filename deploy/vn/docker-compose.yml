@@ -30,6 +30,9 @@ services:
       AGRIMIND_CLIENTS_FILE: /run/agrimind/clients.yaml
       AGRIMIND_AUDIT_FILE: /var/lib/agrimind/audit/audit.jsonl
       AGRIMIND_CORPUS_DIR: /var/lib/agrimind/corpus
+      AGRIMIND_LAKE_DIR: /var/lib/agrimind/lake
+      AGRIMIND_PSEUDONYM_KEY: ${AGRIMIND_PSEUDONYM_KEY:?khoá tạo mã giả cho trại, openssl rand -base64 48}
+      AGRIMIND_MODEL_DIR: /var/lib/agrimind/models
       AGRIMIND_LLM_URL: ${AGRIMIND_LLM_URL:-http://vllm:8000/v1}
       AGRIMIND_LLM_MODEL: ${AGRIMIND_LLM_MODEL:-Qwen/Qwen3-8B}
       AGRIMIND_QDRANT_URL: http://qdrant:6333
@@ -44,6 +47,8 @@ services:
       - ./clients.yaml:/run/agrimind/clients.yaml:ro
       - corpus:/var/lib/agrimind/corpus
       - audit:/var/lib/agrimind/audit
+      - lake:/var/lib/agrimind/lake
+      - models:/var/lib/agrimind/models
     networks: [edge, internal]
     depends_on: [qdrant, embed]
 
@@ -98,6 +103,8 @@ volumes:
   caddy_data: {}
   corpus: {}
   audit: {}
+  lake: {}
+  models: {}
   qdrant: {}
   neo4j: {}
   hf: {}
