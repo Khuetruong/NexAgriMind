@@ -34,6 +34,7 @@ class Entity(BaseModel):
     name_vi: str
     name_en: str | None = None
     scientific_name: str | None = None
+    aliases_vi: list[str] = Field(default_factory=list, description="Cách gọi khác, để nhận ra trong câu hỏi")
     domains: list[str] = Field(default_factory=list)
 
 

@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
 from pathlib import Path
 
 import yaml
 
 from .models import Entity, Relation
+
+
+def _words(text: str) -> list[str]:
+    return re.findall(r"\w+", unicodedata.normalize("NFC", text).lower())
 
 
 class GraphError(ValueError):
@@ -55,6 +61,34 @@ class KnowledgeGraph:
             self.incoming(outcome_id, causal_only=True),
             key=lambda r: (min(e.grade.value for e in r.evidence), r.id),
         )
+
+    def outcomes_in(self, text: str) -> list[Entity]:
+        """Các kết quả (outcome) được nhắc tới trong câu hỏi, so theo tên tiếng Việt."""
+        words = set(_words(text))
+
+        def hit(name: str) -> bool:
+            w = _words(name)
+            return bool(w) and set(w) <= words
+
+        return [
+            e for e in self.entities.values()
+            if e.type.value == "outcome" and any(hit(n) for n in [e.name_vi, *e.aliases_vi])
+        ]
+
+    def merge(self, other: "KnowledgeGraph") -> None:
+        for e in other.entities.values():
+            if e.id in self.entities and self.entities[e.id] != e:
+                raise GraphError(f"thực thể {e.id} khác nhau giữa hai tệp")
+            self.entities.setdefault(e.id, e)
+        for r in other.relations.values():
+            self.add_relation(r)
+
+    @classmethod
+    def from_dir(cls, root: Path) -> "KnowledgeGraph":
+        g = cls()
+        for f in sorted(Path(root).glob("*.yaml")):
+            g.merge(cls.from_yaml(f))
+        return g
 
     @classmethod
     def from_yaml(cls, path: Path) -> "KnowledgeGraph":

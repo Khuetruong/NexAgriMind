@@ -8,7 +8,7 @@ entities:
   - {id: pa-tuyen-trung-re, type: pathogen, name_vi: "Tuyến trùng hại rễ", domains: [D01]}
   - {id: pr-bon-voi, type: practice, name_vi: "Bón vôi cải tạo đất", domains: [D01, D04]}
   - {id: out-hap-thu-dinh-duong-kem, type: outcome, name_vi: "Cây hấp thu dinh dưỡng kém", domains: [D01]}
-  - {id: out-nang-suat-ca-phe-giam, type: outcome, name_vi: "Năng suất cà phê giảm", domains: [D01]}
+  - {id: out-nang-suat-ca-phe-giam, type: outcome, name_vi: "Năng suất cà phê giảm", aliases_vi: ["cà phê mất mùa"], domains: [D01]}
   - {id: out-la-vang, type: outcome, name_vi: "Lá vàng", domains: [D01]}
 
 relations:

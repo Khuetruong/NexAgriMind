@@ -17,6 +17,7 @@ from typing import Protocol
 from pydantic import BaseModel, Field
 
 from ..kg.models import Certainty
+from ..kg.store import KnowledgeGraph
 from .llm import LLM
 from .retriever import Hit
 
@@ -33,6 +34,17 @@ expert_check (danh sách). Trả lời bằng tiếng Việt."""
 
 class Retriever(Protocol):
     def search(self, query: str, k: int = 5, domains: list[str] | None = None) -> list[Hit]: ...
+
+
+class PossibleCause(BaseModel):
+    """Một khả năng lấy từ đồ thị tri thức (chỉ quan hệ nhân quả, không lấy tương quan)."""
+
+    outcome: str
+    factor: str
+    relation: str
+    certainty: Certainty
+    conditions: list[str] = Field(default_factory=list)
+    expert_approved: bool = False
 
 
 class EvidenceItem(BaseModel):
@@ -56,10 +68,14 @@ class Answer(BaseModel):
     farm_data_used: bool = False
     # local = kho trong nước; core = Core trả lời qua trạm kiểm soát dữ liệu ra
     answered_by: str = "local"
+    # Các khả năng cần loại trừ, từ đồ thị tri thức (A05: liệt kê khả năng trước khi kết luận)
+    possible_causes: list[PossibleCause] = Field(default_factory=list)
 
 
 class Assistant:
-    def __init__(self, retriever: Retriever, llm: LLM, k: int = 5, min_score: float = 1.0) -> None:
+    def __init__(self, retriever: Retriever, llm: LLM, k: int = 5, min_score: float = 1.0,
+                 graph: KnowledgeGraph | None = None) -> None:
+        self.graph = graph
         self.retriever = retriever
         self.llm = llm
         self.k = k
@@ -75,6 +91,19 @@ class Assistant:
             refused=True,
         )
 
+    def possible_causes(self, question: str) -> list[PossibleCause]:
+        if not self.graph:
+            return []
+        out: list[PossibleCause] = []
+        for outcome in self.graph.outcomes_in(question):
+            for r in self.graph.candidate_causes(outcome.id):
+                factor = self.graph.entities[r.subject]
+                out.append(PossibleCause(
+                    outcome=outcome.name_vi, factor=factor.name_vi, relation=r.type.value,
+                    certainty=r.certainty, conditions=r.conditions, expert_approved=r.expert_approved,
+                ))
+        return out[:12]
+
     def ask(self, question: str, domains: list[str] | None = None, farm_context: dict | None = None) -> Answer:
         hits = self.retriever.search(question, k=self.k, domains=domains)
         hits = [h for h in hits if (h.relevant if h.relevant is not None else h.score >= self.min_score)]
@@ -85,6 +114,12 @@ class Assistant:
         user = "Câu hỏi: " + question + "\n\nNguồn:\n" + "\n".join(
             f"[{sid}] {h.chunk.title}: {h.chunk.text}" for sid, h in sources.items()
         )
+        causes = self.possible_causes(question)
+        if causes:
+            # Đồ thị chỉ gợi ý khả năng cần xét; bằng chứng vẫn phải là nguồn [S].
+            user += "\n\nCác khả năng theo đồ thị tri thức (gợi ý để xét, KHÔNG phải nguồn để trích):\n" + "\n".join(
+                f"- {c.factor} → {c.outcome} ({c.relation}, độ chắc chắn {c.certainty.value})" for c in causes
+            )
         if farm_context:
             # Dữ liệu trại chỉ để hiểu bối cảnh; không phải nguồn khoa học nên không có mã [S].
             user += (
@@ -94,6 +129,7 @@ class Assistant:
         raw = self.llm.complete_json(SYSTEM_PROMPT, user)
         ans = self._validate(question, raw, sources)
         ans.farm_data_used = bool(farm_context)
+        ans.possible_causes = causes
         return ans
 
     @staticmethod

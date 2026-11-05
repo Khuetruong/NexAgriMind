@@ -17,6 +17,8 @@ class License(str, Enum):
     CC_BY_SA = "CC-BY-SA"
     CC_BY_NC = "CC-BY-NC"
     CC_BY_NC_SA = "CC-BY-NC-SA"
+    CC_BY_ND = "CC-BY-ND"  # không cho sửa đổi: chia đoạn, tóm tắt là sửa đổi → không dùng
+    CC_BY_NC_ND = "CC-BY-NC-ND"
     PUBLIC_DOMAIN = "public-domain"
     GOV_PUBLIC = "gov-public"  # văn bản pháp luật, tiêu chuẩn công bố công khai
     PARTNER = "partner"  # theo hợp đồng với đối tác
@@ -54,6 +56,10 @@ class Document(BaseModel):
     year: int | None = None
     quality: Quality = Quality.RAW
     is_fixture: bool = Field(False, description="Dữ liệu mẫu cho kiểm thử, không phải tri thức thật")
+    doi: str | None = None
+    license_source: str | None = Field(None, description="manifest | openalex: giấy phép lấy từ đâu")
+    fetched_at: str | None = None
+    sha256: str | None = Field(None, description="mã băm nội dung gốc, để biết tài liệu nguồn có đổi")
     text: str
 
 

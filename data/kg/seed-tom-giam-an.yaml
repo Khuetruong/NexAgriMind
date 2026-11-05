@@ -10,7 +10,7 @@ entities:
   - {id: pa-wssv, type: pathogen, name_vi: "Virus đốm trắng (WSSV)", domains: [D02]}
   - {id: pa-vibrio, type: pathogen, name_vi: "Vibrio", domains: [D02, D05]}
   - {id: dz-ahpnd, type: disease, name_vi: "Hoại tử gan tụy cấp (AHPND)", domains: [D02]}
-  - {id: out-giam-an, type: outcome, name_vi: "Tôm giảm ăn", domains: [D02]}
+  - {id: out-giam-an, type: outcome, name_vi: "Tôm giảm ăn", aliases_vi: ["tôm bỏ ăn", "tôm ăn yếu"], domains: [D02]}
   - {id: out-mau-nuoc-dam, type: outcome, name_vi: "Màu nước đậm", domains: [D02]}
 
 relations:

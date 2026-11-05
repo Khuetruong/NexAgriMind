@@ -1,0 +1,103 @@
+# Điểm AgriMind TRONG NƯỚC (Việt Nam), chạy thật. Dữ liệu trang trại chỉ ở đây (A07).
+# Chỉ Caddy mở cổng ra ngoài (443, 80 để lấy chứng chỉ). Mọi dịch vụ khác nằm trong
+# mạng nội bộ, không có cổng công khai.
+#   cp .env.example .env   # điền giá trị thật
+#   docker compose up -d                    # không có GPU: dùng LLM ngoài qua AGRIMIND_LLM_URL
+#   docker compose --profile gpu up -d      # có GPU: chạy Qwen3 bằng vLLM ngay trên máy
+name: agrimind-vn
+
+services:
+  caddy:
+    image: caddy:2.8.4
+    restart: unless-stopped
+    ports: ["443:443", "80:80"]
+    environment:
+      AGRIMIND_DOMAIN: ${AGRIMIND_DOMAIN:?đặt tên miền, ví dụ api-vn.agrimind.vn}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    networks: [edge]
+    depends_on: [agrimind]
+
+  agrimind:
+    image: ${AGRIMIND_IMAGE:-ghcr.io/khuetruong/nexagrimind:latest}
+    build: ../..
+    restart: unless-stopped
+    environment:
+      AGRIMIND_ENV: production
+      AGRIMIND_ROLE: country
+      AGRIMIND_COUNTRY: VN
+      AGRIMIND_CLIENTS_FILE: /run/agrimind/clients.yaml
+      AGRIMIND_AUDIT_FILE: /var/lib/agrimind/audit/audit.jsonl
+      AGRIMIND_CORPUS_DIR: /var/lib/agrimind/corpus
+      AGRIMIND_LLM_URL: ${AGRIMIND_LLM_URL:-http://vllm:8000/v1}
+      AGRIMIND_LLM_MODEL: ${AGRIMIND_LLM_MODEL:-Qwen/Qwen3-8B}
+      AGRIMIND_QDRANT_URL: http://qdrant:6333
+      AGRIMIND_QDRANT_API_KEY: ${QDRANT_API_KEY:?}
+      AGRIMIND_EMBED_URL: http://embed:80/v1
+      AGRIMIND_EMBED_MODEL: BAAI/bge-m3
+      AGRIMIND_CORE_URL: ${AGRIMIND_CORE_URL:-}
+      AGRIMIND_CORE_KEY: ${AGRIMIND_CORE_KEY:-}
+      NEXAGRI_TENANT_URL: ${NEXAGRI_TENANT_URL:?địa chỉ dịch vụ tenant của Nexagri trong nước}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?}
+    volumes:
+      - ./clients.yaml:/run/agrimind/clients.yaml:ro
+      - corpus:/var/lib/agrimind/corpus
+      - audit:/var/lib/agrimind/audit
+    networks: [edge, internal]
+    depends_on: [qdrant, embed]
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.5
+    restart: unless-stopped
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:?}
+      QDRANT__TELEMETRY_DISABLED: "true"
+    volumes: [qdrant:/qdrant/storage]
+    networks: [internal]
+
+  embed:
+    # Mô hình nhúng bge-m3 (giấy phép MIT), chạy CPU; có GPU thì đổi sang ảnh không có hậu tố cpu-.
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    restart: unless-stopped
+    command: ["--model-id", "BAAI/bge-m3"]
+    volumes: [hf:/data]
+    networks: [internal, models_download]
+
+  neo4j:
+    image: neo4j:5.26-community
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?}
+      NEO4J_server_memory_heap_max__size: 1G
+    volumes: [neo4j:/data]
+    networks: [internal]
+
+  vllm:
+    # Qwen3 (Apache 2.0) chạy bằng vLLM, cần GPU NVIDIA ≥ 24GB cho bản 8B.
+    image: vllm/vllm-openai:v0.9.2
+    profiles: [gpu]
+    restart: unless-stopped
+    command: ["--model", "Qwen/Qwen3-8B", "--max-model-len", "16384"]
+    volumes: [hf:/root/.cache/huggingface]
+    deploy:
+      resources:
+        reservations:
+          devices: [{driver: nvidia, count: 1, capabilities: [gpu]}]
+    networks: [internal, models_download]
+
+networks:
+  edge: {}
+  internal:
+    internal: true   # không có đường ra Internet; chỉ các dịch vụ trong máy gọi nhau
+  # Chỉ để tải trọng số mô hình lần đầu. Tải xong (thư mục hf đã có mô hình) thì xoá
+  # models_download khỏi embed và vllm rồi chạy lại: hai dịch vụ này sẽ không ra Internet được nữa.
+  models_download: {}
+
+volumes:
+  caddy_data: {}
+  corpus: {}
+  audit: {}
+  qdrant: {}
+  neo4j: {}
+  hf: {}

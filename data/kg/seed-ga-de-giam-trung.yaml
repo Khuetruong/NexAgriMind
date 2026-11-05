@@ -8,7 +8,7 @@ entities:
   - {id: pr-mat-do-cao, type: practice, name_vi: "Mật độ nuôi cao", domains: [D03]}
   - {id: pr-lam-mat-chuong, type: practice, name_vi: "Làm mát, thông gió chuồng", domains: [D03, D09]}
   - {id: out-ga-an-it, type: outcome, name_vi: "Gà ăn ít", domains: [D03]}
-  - {id: out-giam-trung, type: outcome, name_vi: "Tỷ lệ đẻ giảm", domains: [D03]}
+  - {id: out-giam-trung, type: outcome, name_vi: "Tỷ lệ đẻ giảm", aliases_vi: ["giảm trứng", "đẻ ít trứng"], domains: [D03]}
   - {id: out-vo-trung-mong, type: outcome, name_vi: "Vỏ trứng mỏng", domains: [D03]}
 
 relations:

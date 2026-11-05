@@ -1,0 +1,22 @@
+# Mẫu danh sách nguồn cho `agrimind-fetch` (gói 2 của A10).
+# Chuyên gia từng trung tâm thêm nguồn vào đây; Claude KHÔNG tự chọn nguồn khoa học.
+# Chạy:  agrimind-fetch data/sources/<tệp>.yaml --out corpus/
+#
+# Mỗi nguồn cần một trong hai:
+#   - doi: công cụ tự tra tiêu đề, năm, giấy phép trên OpenAlex và tải bản truy cập mở;
+#   - url + title + license: tài liệu không có DOI (tiêu chuẩn, hướng dẫn của cơ quan nhà nước...).
+# Giấy phép dùng được cho sản phẩm: CC0, CC-BY, CC-BY-SA, public-domain, gov-public, partner.
+# CC-BY-NC, CC-BY-ND, proprietary, unknown: vẫn lưu nhưng KHÔNG vào kho phục vụ.
+#
+# Ví dụ (đã chú thích, sửa thành nguồn thật rồi bỏ dấu #):
+# sources:
+#   - id: d02-oxy-ao-tom-2021
+#     doi: 10.xxxx/xxxxx
+#     domains: [D02, D04]
+#   - id: d01-tcvn-phan-bon-xxxx
+#     url: https://.../tieu-chuan.pdf
+#     title: "TCVN xxxx: ..."
+#     license: gov-public
+#     domains: [D01, D04]
+#     language: vi
+sources: []

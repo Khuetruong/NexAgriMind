@@ -19,6 +19,7 @@ Biến môi trường:
   AGRIMIND_AUDIT_FILE   tệp nhật ký kiểm toán (JSON mỗi dòng)
   AGRIMIND_MAX_BODY     kích thước yêu cầu tối đa (byte), mặc định 65536
   AGRIMIND_CORPUS_DIR   thư mục tài liệu (.md có phần đầu YAML)
+  AGRIMIND_KG_DIR       thư mục đồ thị tri thức (.yaml), mặc định data/kg
   AGRIMIND_LLM_URL      URL API tương thích OpenAI (vLLM chạy Qwen3); bỏ trống = StubLLM
   AGRIMIND_LLM_MODEL    tên mô hình, mặc định Qwen/Qwen3-8B
   AGRIMIND_QDRANT_URL   bật tìm theo nghĩa (gộp với BM25); cần thêm AGRIMIND_EMBED_URL
@@ -43,7 +44,8 @@ from ..consent.gate import ConsentEvent, DenyAll, NexagriConsentGate
 from ..corpus.ingest import build_chunks, load_directory
 from ..gateway.egress import EgressStation
 from ..gateway.routing import AskRequest, Mode, choose_mode, redact
-from ..rag.answer import Answer, Assistant
+from ..kg.store import KnowledgeGraph
+from ..rag.answer import Answer, Assistant, PossibleCause
 from ..rag.llm import OpenAICompatibleLLM, StubLLM
 from ..rag.retriever import BM25Retriever
 from ..rag.vector import HybridRetriever, OpenAICompatibleEmbedder, QdrantStore, VectorRetriever
@@ -62,6 +64,7 @@ class Settings:
         self.audit_file = os.getenv("AGRIMIND_AUDIT_FILE", "")
         self.max_body = int(os.getenv("AGRIMIND_MAX_BODY", "65536"))
         self.corpus_dir = Path(os.getenv("AGRIMIND_CORPUS_DIR", "tests/fixtures/corpus"))
+        self.kg_dir = os.getenv("AGRIMIND_KG_DIR", "data/kg")
         self.llm_url = os.getenv("AGRIMIND_LLM_URL", "")
         self.llm_model = os.getenv("AGRIMIND_LLM_MODEL", "Qwen/Qwen3-8B")
         self.qdrant_url = os.getenv("AGRIMIND_QDRANT_URL", "")
@@ -78,8 +81,15 @@ class Settings:
 
 
 @lru_cache
+def get_graph(kg_dir: str) -> KnowledgeGraph | None:
+    p = Path(kg_dir) if kg_dir else None
+    return KnowledgeGraph.from_dir(p) if p and p.is_dir() else None
+
+
+@lru_cache
 def get_assistant(corpus_dir: str, llm_url: str, llm_model: str, qdrant_url: str = "",
-                  embed_url: str = "", embed_model: str = "") -> Assistant:
+                  embed_url: str = "", embed_model: str = "", kg_dir: str = "") -> Assistant:
+    graph = get_graph(kg_dir)
     chunks = build_chunks(load_directory(Path(corpus_dir)))
     llm = OpenAICompatibleLLM(llm_url, llm_model) if llm_url else StubLLM()
     retriever = BM25Retriever(chunks)
@@ -89,8 +99,8 @@ def get_assistant(corpus_dir: str, llm_url: str, llm_model: str, qdrant_url: str
                         os.getenv("AGRIMIND_QDRANT_API_KEY")),
             OpenAICompatibleEmbedder(embed_url, embed_model, os.getenv("AGRIMIND_EMBED_API_KEY")),
         )
-        return Assistant(HybridRetriever(retriever, vector), llm)
-    return Assistant(retriever, llm)
+        return Assistant(HybridRetriever(retriever, vector), llm, graph=graph)
+    return Assistant(retriever, llm, graph=graph)
 
 
 def make_consent_gate(s: Settings):
@@ -186,7 +196,7 @@ def create_app(settings: Settings | None = None, consent_gate=None, registry: Cl
             raise HTTPException(421, f"Điểm API này phục vụ {s.country}, không phải {country}.")
 
         assistant = get_assistant(str(s.corpus_dir), s.llm_url, s.llm_model,
-                                  s.qdrant_url, s.embed_url, s.embed_model)
+                                  s.qdrant_url, s.embed_url, s.embed_model, s.kg_dir)
         question = redact(req.question, req.private_terms) if mode == Mode.FARM else req.question
         # Dữ liệu trại chỉ được dùng khi trại đã bật chia sẻ trong Nexagri; không thì bỏ đi.
         farm_context = None
@@ -204,6 +214,29 @@ def create_app(settings: Settings | None = None, consent_gate=None, registry: Cl
             if core is not None and not core.refused:
                 return core
         return ans
+
+    @app.get("/v1/kg/outcomes")
+    def kg_outcomes(client: ApiClient = Depends(authenticate)) -> list[dict]:
+        need(client, Scope.ASK_GENERAL)
+        g = get_graph(s.kg_dir)
+        if g is None:
+            return []
+        return [{"id": e.id, "name_vi": e.name_vi, "domains": e.domains}
+                for e in g.entities.values() if e.type.value == "outcome"]
+
+    @app.get("/v1/kg/causes/{outcome_id}", response_model=list[PossibleCause])
+    def kg_causes(outcome_id: str, client: ApiClient = Depends(authenticate)) -> list[PossibleCause]:
+        """Các yếu tố có quan hệ NHÂN QUẢ tới một kết quả (tương quan bị loại)."""
+        need(client, Scope.ASK_GENERAL)
+        g = get_graph(s.kg_dir)
+        if g is None or outcome_id not in g.entities:
+            raise HTTPException(404, "Không có kết quả này trong đồ thị.")
+        out = g.entities[outcome_id]
+        return [
+            PossibleCause(outcome=out.name_vi, factor=g.entities[r.subject].name_vi, relation=r.type.value,
+                          certainty=r.certainty, conditions=r.conditions, expert_approved=r.expert_approved)
+            for r in g.candidate_causes(outcome_id)
+        ]
 
     @app.post("/v1/internal/consent-events", status_code=204, response_class=Response)
     def consent_event(ev: ConsentEvent, client: ApiClient = Depends(authenticate)) -> Response:

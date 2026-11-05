@@ -188,3 +188,17 @@ def test_country_falls_back_to_core_when_local_refuses(keys):
     assert r.json()["answered_by"] == "core" and eg.calls == ["partner"]
     r = c.post("/v1/ask", json=Q, headers=H(keys["partner"]))
     assert r.json()["answered_by"] == "local" and len(eg.calls) == 1
+
+
+def test_kg_endpoints_and_causes_in_answer(keys):
+    c = _app(keys, kg_dir=str(ROOT / "data" / "kg"))
+    assert c.get("/v1/kg/outcomes").status_code == 401
+    outs = {o["id"] for o in c.get("/v1/kg/outcomes", headers=H(keys["nexagri-vn"])).json()}
+    assert {"out-giam-an", "out-giam-trung", "out-nang-suat-ca-phe-giam"} <= outs
+    causes = c.get("/v1/kg/causes/out-giam-trung", headers=H(keys["nexagri-vn"])).json()
+    factors = {x["factor"] for x in causes}
+    assert "Thiếu nước uống sạch" in factors and "Vỏ trứng mỏng" not in factors
+    assert c.get("/v1/kg/causes/khong-co", headers=H(keys["nexagri-vn"])).status_code == 404
+    r = c.post("/v1/ask", json={"question": "Gà đẻ giảm trứng trong đợt nắng nóng kéo dài có thể do đâu?"},
+               headers=H(keys["nexagri-vn"])).json()
+    assert not r["refused"] and any(x["factor"] == "Mật độ nuôi cao" for x in r["possible_causes"])

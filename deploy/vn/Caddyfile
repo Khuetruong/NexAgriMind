@@ -1,0 +1,22 @@
+# HTTPS tự động (Let's Encrypt). Chỉ cho đi qua các đường của API, chặn mọi thứ khác.
+{$AGRIMIND_DOMAIN} {
+	encode gzip
+	request_body {
+		max_size 64KB
+	}
+	@api path /health /v1/*
+	handle @api {
+		reverse_proxy agrimind:8000
+	}
+	handle {
+		respond 404
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	log {
+		output stdout
+		format json
+	}
+}
