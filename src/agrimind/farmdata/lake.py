@@ -34,6 +34,20 @@ class RecordKind(str, Enum):
     INPUT_USE = "input_use"
     HARVEST = "harvest"
     OBSERVATION = "observation"
+    VISION_EVENT = "vision_event"  # camera/hộp AI phát hiện (bệnh, sâu, đếm con, xâm nhập...)
+
+
+class VisionInfo(BaseModel):
+    """Kết quả AI trên ảnh. Nhãn người duyệt là dữ liệu quý nhất để huấn luyện lại."""
+
+    camera: str | None = Field(None, max_length=100)  # mã camera (sẽ đổi thành mã giả)
+    event_type: str = Field(max_length=60)
+    predicted_label: str = Field(max_length=120)
+    confidence: float = Field(ge=0, le=1)
+    model_name: str | None = Field(None, max_length=120)
+    model_version: str | None = Field(None, max_length=120)
+    reviewed_label: str | None = Field(None, max_length=120)  # người duyệt sửa/ xác nhận
+    review_verdict: str | None = Field(None, pattern="^(confirmed|rejected|corrected)$")
 
 
 class FarmRecord(BaseModel):
@@ -49,6 +63,8 @@ class FarmRecord(BaseModel):
     values: dict[str, float] = Field(default_factory=dict, max_length=100)
     units: dict[str, str] = Field(default_factory=dict, max_length=100)
     note: str | None = Field(None, max_length=2000)
+    vision: VisionInfo | None = None
+    source_id: str | None = Field(None, max_length=120)  # mã bản ghi bên Nexagri, để gộp bản cập nhật
 
 
 # Khoảng hợp lý (rộng) để bắt lỗi cảm biến/nhập liệu; chuyên gia chỉnh theo từng ngành.
@@ -78,6 +94,8 @@ class StoredRecord(BaseModel):
     values: dict[str, float]
     units: dict[str, str]
     note: str | None
+    vision: VisionInfo | None = None
+    source: str | None = None  # mã giả của source_id
     quality: Quality
     flags: list[str]
     ingested_at: datetime
@@ -98,6 +116,8 @@ class FarmDataLake:
     @staticmethod
     def check(rec: FarmRecord, now: datetime) -> list[str]:
         flags = []
+        if rec.kind == RecordKind.VISION_EVENT and rec.vision is None:
+            flags.append("sự kiện camera thiếu thông tin AI")
         at = rec.at if rec.at.tzinfo else rec.at.replace(tzinfo=timezone.utc)
         if at > now + timedelta(days=1):
             flags.append("thời gian ở tương lai")
@@ -120,6 +140,9 @@ class FarmDataLake:
             lat=round(rec.lat, 1) if rec.lat is not None else None,
             lon=round(rec.lon, 1) if rec.lon is not None else None,
             values=values, units=rec.units, note=redact(rec.note) if rec.note else None,
+            vision=rec.vision.model_copy(update={"camera": self.pseudonym(rec.tenant_id, "cam", rec.vision.camera)})
+            if rec.vision and rec.vision.camera else rec.vision,
+            source=self.pseudonym(rec.tenant_id, "src", rec.source_id) if rec.source_id else None,
             quality=Quality.RAW if flags else Quality.CHECKED, flags=flags, ingested_at=now,
         )
 

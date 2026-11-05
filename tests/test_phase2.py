@@ -153,3 +153,17 @@ def test_draft_rules_load():
                           Reading(unit_id="chuong-1", at=NOW + timedelta(hours=1), values={"temperature": 34})],
                          rules, "poultry")
     assert [a.rule_id for a in alerts] == ["po-nong-chuong"]
+
+
+def test_vision_events_pseudonymised(tmp_path):
+    lake = FarmDataLake(tmp_path, KEY)
+    ev = _rec(kind="vision_event", values={}, source_id="EVT-77", vision={
+        "camera": "CAM-1", "event_type": "disease_suspected", "predicted_label": "dao_on", "confidence": 0.81,
+        "model_name": "leaf", "model_version": "rice-leaf-2026.09", "reviewed_label": "dao_on",
+        "review_verdict": "confirmed"})
+    lake.write([ev, _rec(kind="vision_event", values={})])
+    raw = "".join(f.read_text(encoding="utf-8") for f in tmp_path.rglob("*.jsonl"))
+    assert "CAM-1" not in raw and "EVT-77" not in raw
+    a, b = lake.read("T-ON")
+    assert a.vision.review_verdict == "confirmed" and a.quality.value == "checked"
+    assert b.quality.value == "raw"
