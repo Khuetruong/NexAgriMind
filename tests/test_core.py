@@ -131,5 +131,14 @@ def test_country_endpoint_checks_country():
 def test_benchmark_runs(assistant):
     rep = run(assistant, load_benchmark(ROOT / "benchmarks" / "vi-core-v0.yaml"))
     s = rep.summary()
-    assert s["items"] == 5
+    assert s["items"] == 6 and s["passed"] == 6
     assert s["no_fabricated_citations"] == 1.0
+
+
+def test_seed_graphs_cover_crops_and_livestock():
+    cafe = KnowledgeGraph.from_yaml(ROOT / "data" / "kg" / "seed-ca-phe-nang-suat.yaml")
+    causes = {r.subject for r in cafe.candidate_causes("out-nang-suat-ca-phe-giam")}
+    assert "pa-tuyen-trung-re" in causes and "out-la-vang" not in causes
+    ga = KnowledgeGraph.from_yaml(ROOT / "data" / "kg" / "seed-ga-de-giam-trung.yaml")
+    causes = {r.subject for r in ga.candidate_causes("out-giam-trung")}
+    assert "env-thieu-nuoc-uong" in causes and "out-vo-trung-mong" not in causes

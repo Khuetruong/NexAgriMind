@@ -174,9 +174,9 @@ def test_revoke_event_applies_immediately_and_old_events_ignored():
     assert not g.allowed("T-ON")
 
 
-def _client(gate, role="country", key="k"):
+def _client(gate, role="country"):
     s = Settings()
-    s.role, s.corpus_dir, s.llm_url, s.qdrant_url, s.internal_key = role, CORPUS, "", "", key
+    s.role, s.corpus_dir, s.llm_url, s.qdrant_url = role, CORPUS, "", ""
     return TestClient(create_app(s, consent_gate=gate))
 
 
@@ -193,11 +193,28 @@ def test_farm_data_used_only_with_consent():
 
 
 def test_consent_event_endpoint():
+    from agrimind.security.clients import ApiClient, ClientRegistry, Scope, new_key
+
+    key, sha = new_key("nexagri-vn")
+    pkey, psha = new_key("partner")
+    reg = ClientRegistry([
+        ApiClient(id="nexagri-vn", name="Nexagri", key_sha256=sha,
+                  scopes={Scope.ASK_GENERAL, Scope.ASK_FARM, Scope.CONSENT_EVENTS}),
+        ApiClient(id="partner", name="Đối tác", key_sha256=psha, scopes={Scope.ASK_GENERAL}),
+    ])
     gate = _gate(FakeNexagri())
-    c = _client(gate)
+    s = Settings()
+    s.corpus_dir, s.llm_url, s.qdrant_url = CORPUS, "", ""
+    c = TestClient(create_app(s, consent_gate=gate, registry=reg))
     ev = {"tenant_id": "T-ON", "enabled": False, "at": "2026-11-05T00:00:00Z"}
     assert c.post("/v1/internal/consent-events", json=ev).status_code == 401
-    assert c.post("/v1/internal/consent-events", json=ev, headers={"X-Internal-Key": "k"}).status_code == 204
+    assert c.post("/v1/internal/consent-events", json=ev,
+                  headers={"Authorization": f"Bearer {pkey}"}).status_code == 403
+    assert c.post("/v1/internal/consent-events", json=ev,
+                  headers={"Authorization": f"Bearer {key}"}).status_code == 204
     assert not gate.allowed("T-ON")
-    assert _client(DenyAll(), role="core").post(
-        "/v1/internal/consent-events", json=ev, headers={"X-Internal-Key": "k"}).status_code == 404
+    s2 = Settings()
+    s2.role, s2.corpus_dir = "core", CORPUS
+    core = TestClient(create_app(s2, consent_gate=DenyAll(), registry=reg))
+    assert core.post("/v1/internal/consent-events", json=ev,
+                     headers={"Authorization": f"Bearer {key}"}).status_code == 404

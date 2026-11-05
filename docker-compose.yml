@@ -10,6 +10,9 @@ services:
       AGRIMIND_QDRANT_URL: ${AGRIMIND_QDRANT_URL:-}
       AGRIMIND_EMBED_URL: ${AGRIMIND_EMBED_URL:-}
       # Nexagri trong nước: kiểm tra trại đã đồng ý chia sẻ dữ liệu chưa.
+      AGRIMIND_CORE_URL: http://agrimind-core:8000
+      AGRIMIND_CORE_KEY: ${AGRIMIND_CORE_KEY:-}
+      AGRIMIND_CLIENTS_FILE: ${AGRIMIND_CLIENTS_FILE:-}
       NEXAGRI_TENANT_URL: ${NEXAGRI_TENANT_URL:-}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
     ports: ["8000:8000"]

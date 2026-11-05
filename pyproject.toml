@@ -23,6 +23,7 @@ agrimind-eval = "agrimind.eval.cli:main"
 agrimind-ingest = "agrimind.corpus.cli:main"
 agrimind-index = "agrimind.rag.cli:main"
 agrimind-kg = "agrimind.kg.cli:main"
+agrimind-keys = "agrimind.security.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

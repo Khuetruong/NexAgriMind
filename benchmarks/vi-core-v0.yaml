@@ -18,6 +18,11 @@ items:
     domains: [D01]
     expect: answerable
     expected_sources: [fx-ca-phe-dat]
+  - id: d03-002
+    question: "Gà đẻ giảm trứng trong đợt nắng nóng kéo dài có thể do đâu?"
+    domains: [D03]
+    expect: answerable
+    expected_sources: [fx-ga-de-nang-nong]
   - id: d03-001
     question: "Nhiệt độ chuồng heo nái nên giữ ở mức nào?"
     domains: [D03]

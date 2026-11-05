@@ -24,6 +24,9 @@ class AskRequest(BaseModel):
     country: str = "VN"
     domains: list[str] | None = None
     attached_data: dict | None = None
+    # Tên chủ trại, tên trại, địa chỉ... do Nexagri gửi CHỈ để bỏ khỏi câu hỏi
+    # trước khi đi ra ngoài. Không bao giờ được chuyển tiếp hay ghi nhật ký.
+    private_terms: list[str] | None = Field(default=None, max_length=50)
 
 
 def choose_mode(req: AskRequest) -> Mode:

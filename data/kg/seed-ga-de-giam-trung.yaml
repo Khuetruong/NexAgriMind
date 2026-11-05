@@ -1,0 +1,51 @@
+# Đồ thị mẫu chăn nuôi (D03, D06): "gà đẻ giảm trứng khi nắng nóng".
+# CẤU TRÚC MẪU: mọi quan hệ ở mức bằng chứng D/E, chưa chuyên gia duyệt.
+# Chuyên gia chăn nuôi, thú y (gói 9 của A10) cần thay bằng nguồn khoa học thật.
+entities:
+  - {id: sp-gallus-gallus, type: species, name_vi: "Gà đẻ", scientific_name: "Gallus gallus domesticus", domains: [D03]}
+  - {id: env-nang-nong-keo-dai, type: env_factor, name_vi: "Nắng nóng kéo dài", domains: [D03, D06]}
+  - {id: env-thieu-nuoc-uong, type: env_factor, name_vi: "Thiếu nước uống sạch", domains: [D03, D04]}
+  - {id: pr-mat-do-cao, type: practice, name_vi: "Mật độ nuôi cao", domains: [D03]}
+  - {id: pr-lam-mat-chuong, type: practice, name_vi: "Làm mát, thông gió chuồng", domains: [D03, D09]}
+  - {id: out-ga-an-it, type: outcome, name_vi: "Gà ăn ít", domains: [D03]}
+  - {id: out-giam-trung, type: outcome, name_vi: "Tỷ lệ đẻ giảm", domains: [D03]}
+  - {id: out-vo-trung-mong, type: outcome, name_vi: "Vỏ trứng mỏng", domains: [D03]}
+
+relations:
+  - id: r-nong-anit
+    subject: env-nang-nong-keo-dai
+    type: increases_risk_of
+    object: out-ga-an-it
+    evidence: [{source: "Ví dụ minh họa (tài liệu mẫu fx-ga-de-nang-nong)", grade: D, note: "cần nguồn khoa học"}]
+    certainty: low
+  - id: r-anit-giamtrung
+    subject: out-ga-an-it
+    type: increases_risk_of
+    object: out-giam-trung
+    evidence: [{source: "Ví dụ minh họa (tài liệu mẫu fx-ga-de-nang-nong)", grade: D}]
+    certainty: low
+  - id: r-nuoc-giamtrung
+    subject: env-thieu-nuoc-uong
+    type: increases_risk_of
+    object: out-giam-trung
+    evidence: [{source: "Ví dụ minh họa (tài liệu mẫu fx-ga-de-nang-nong)", grade: D}]
+    certainty: low
+  - id: r-matdo-giamtrung
+    subject: pr-mat-do-cao
+    type: increases_risk_of
+    object: out-giam-trung
+    conditions: ["đặc biệt khi trời nóng"]
+    evidence: [{source: "Ví dụ minh họa (tài liệu mẫu fx-ga-de-nang-nong)", grade: D}]
+    certainty: low
+  - id: r-lammat-anit
+    subject: pr-lam-mat-chuong
+    type: decreases_risk_of
+    object: out-ga-an-it
+    evidence: [{source: "Ví dụ minh họa (tài liệu mẫu fx-ga-de-nang-nong)", grade: D}]
+    certainty: low
+  - id: r-vomong-giamtrung
+    subject: out-vo-trung-mong
+    type: correlates_with
+    object: out-giam-trung
+    evidence: [{source: "Ví dụ minh họa: hay xuất hiện cùng nhau, chưa chứng minh nhân quả", grade: E}]
+    certainty: low

@@ -18,7 +18,9 @@ Thiết kế theo bộ Master Blueprint A01–A10. Kế hoạch tổng: https://
 | 1. Khung dự án | toàn bộ, `.github/workflows/ci.yml` | Có |
 | 2. Kho tài liệu khoa học | `src/agrimind/corpus` | Bộ nạp + kiểm tra giấy phép; chưa có tài liệu thật |
 | 3. Trợ lý hỏi đáp (RAG) | `src/agrimind/rag`, `src/agrimind/api` | BM25, thêm tìm theo nghĩa (Qdrant + bge-m3) gộp bằng RRF; Qwen3 qua vLLM; chạy thử được với `StubLLM` |
-| 4. Đồ thị tri thức | `src/agrimind/kg`, `data/kg` | Cấu trúc + đồ thị mẫu "tôm giảm ăn" (chưa chuyên gia duyệt); nạp Neo4j bằng `agrimind-kg` |
+| 4. Đồ thị tri thức | `src/agrimind/kg`, `data/kg` | Cấu trúc + 3 đồ thị mẫu: cà phê năng suất giảm, gà đẻ giảm trứng, tôm giảm ăn (chưa chuyên gia duyệt); nạp Neo4j bằng `agrimind-kg` |
+| Bảo vệ API | `src/agrimind/security`, `src/agrimind/audit` | Khoá riêng từng bên + quyền, giới hạn tần suất và kích thước, nhật ký không chứa nội dung |
+| Trạm kiểm soát dữ liệu ra (A07) | `src/agrimind/gateway/egress.py` | Điểm trong nước chỉ gửi câu hỏi đã bỏ nhận dạng lên Core; còn sót thì chặn |
 | 6. Đồng ý dữ liệu (phía AgriMind) | `src/agrimind/consent` | Điểm trong nước chỉ dùng dữ liệu trại khi trại đã bật trong Nexagri; hỏi Nexagri không được thì coi như chưa đồng ý |
 | 5. Bộ chấm điểm | `src/agrimind/eval`, `benchmarks` | Chấm tự động 4 tiêu chí; bộ câu hỏi v0 là bản nháp |
 
@@ -53,6 +55,19 @@ AGRIMIND_NEO4J_PASSWORD=agrimind-dev agrimind-kg data/kg/*.yaml --neo4j-url http
 ```
 
 Nối Nexagri (chỉ điểm `country`): đặt `NEXAGRI_TENANT_URL` (dịch vụ tenant của Nexagri) và `INTERNAL_SERVICE_KEY` (cùng khoá với Nexagri). Dữ liệu trại gửi kèm câu hỏi chỉ được dùng khi trại đã bật chia sẻ. Nexagri có thể báo bật/tắt ngay qua `POST /v1/internal/consent-events`.
+
+## Cho bên ngoài truy cập API
+
+Mọi đường `/v1/...` cần khoá: `Authorization: Bearer amk_<mã bên>.<chuỗi bí mật>`. Chỉ `/health` mở.
+
+1. Tạo khoá: `agrimind-keys new nexagri-vn --name "Nexagri Việt Nam" --scopes ask:general,ask:farm,consent:events --countries VN --rate 300`.
+   Khoá chỉ in ra một lần; giao cho bên kia qua kênh an toàn. Đoạn YAML in ra chỉ có mã băm, dán vào tệp `AGRIMIND_CLIENTS_FILE`.
+2. Quyền: `ask:general` (câu hỏi chung, cấp được cho đối tác), `ask:farm` (kèm dữ liệu trại, chỉ Nexagri trong nước), `consent:events` (báo bật/tắt chia sẻ, chỉ Nexagri).
+3. Thu hồi: đặt `disabled: true` hoặc `expires:` cho bên đó rồi khởi động lại.
+4. Production (`AGRIMIND_ENV=production`): không có tệp khoá thì dịch vụ không chạy; trang `/docs` tắt. Vẫn đặt HTTPS và giới hạn tần suất ở cổng phía trước (nginx).
+5. Nhật ký `AGRIMIND_AUDIT_FILE` ghi ai gọi, kết quả, trại nào bị dùng dữ liệu, cái gì đi ra Core; không ghi câu hỏi hay dữ liệu trại.
+
+Điểm trong nước hỏi Core khi kho trong nước chưa đủ: đặt `AGRIMIND_CORE_URL` và `AGRIMIND_CORE_KEY` (khoá do Core cấp, chỉ quyền `ask:general`).
 
 ## Thêm tài liệu
 

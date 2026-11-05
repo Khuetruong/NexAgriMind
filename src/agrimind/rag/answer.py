@@ -54,6 +54,8 @@ class Answer(BaseModel):
     dropped_citations: int = 0
     # True khi dữ liệu trang trại (đã được trại đồng ý chia sẻ) có trong lời nhắc.
     farm_data_used: bool = False
+    # local = kho trong nước; core = Core trả lời qua trạm kiểm soát dữ liệu ra
+    answered_by: str = "local"
 
 
 class Assistant:
