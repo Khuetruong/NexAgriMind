@@ -62,6 +62,14 @@ def test_signed_bundle(tmp_path):
     tampered["payload"]["card"]["risk_level"] = 1
     with pytest.raises(BundleError):
         verify_bundle(tampered, pub, "VN")
+    import base64
+    forged = json.loads(json.dumps(bundle))
+    forged["signed"] = base64.b64encode(base64.b64decode(bundle["signed"]).replace(b'"risk_level":2', b'"risk_level":1')).decode()
+    forged.pop("payload")
+    with pytest.raises(BundleError):
+        verify_bundle(forged, pub, "VN")
+    only_signed = {k: v for k, v in bundle.items() if k != "payload"}
+    assert verify_bundle(only_signed, pub, "VN").version == "1.0.0"
     art.write_bytes(b"weights-doi")
     with pytest.raises(BundleError):
         verify_bundle(bundle, pub, "VN", art)

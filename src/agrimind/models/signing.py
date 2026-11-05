@@ -8,6 +8,7 @@ không đổi được mô hình hay nội dung thẻ mô hình.
 from __future__ import annotations
 
 import base64
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -55,14 +56,25 @@ def sign_bundle(card: ModelCard, target: str, private_pem: bytes, issuer: str = 
         "issuer": issuer,
         "issued_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
-    sig = _load_priv(private_pem).sign(canonical(payload))
-    return {"payload": payload, "signature": base64.b64encode(sig).decode()}
+    signed = canonical(payload)
+    sig = _load_priv(private_pem).sign(signed)
+    # "signed" = đúng các byte đã ký, để bên khác ngôn ngữ (Nexagri viết bằng Go) kiểm chữ ký
+    # mà không phải tự dựng lại JSON chuẩn hoá giống hệt Python.
+    return {"payload": payload, "signed": base64.b64encode(signed).decode(), "signature": base64.b64encode(sig).decode()}
 
 
 def verify_bundle(bundle: dict, public_pem: bytes, country: str, artifact: Path | None = None) -> ModelCard:
     try:
-        payload, sig = bundle["payload"], base64.b64decode(bundle["signature"])
-        _load_pub(public_pem).verify(sig, canonical(payload))
+        sig = base64.b64decode(bundle["signature"])
+        if "signed" in bundle:
+            signed = base64.b64decode(bundle["signed"])
+            payload = json.loads(signed)
+            if "payload" in bundle and bundle["payload"] != payload:
+                raise ValueError("payload khác phần đã ký")
+        else:
+            payload = bundle["payload"]
+            signed = canonical(payload)
+        _load_pub(public_pem).verify(sig, signed)
     except (KeyError, ValueError, TypeError, InvalidSignature) as e:
         raise BundleError("chữ ký không hợp lệ: gói đã bị sửa hoặc không do Core phát hành") from e
     if payload.get("target", "").upper() != country.upper():

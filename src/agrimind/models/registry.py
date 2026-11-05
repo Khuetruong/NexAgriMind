@@ -84,6 +84,9 @@ class ModelCard(BaseModel):
     auto_action: bool = False  # True = tự điều khiển thiết bị/cho thuốc — không bao giờ cho phép ở mức 3
     artifact_sha256: str | None = Field(None, pattern=r"^[0-9a-f]{64}$")
     artifact_uri: str | None = None
+    # Cho mô hình chạy trên bộ AI tại trại: định dạng tệp và danh sách nhãn theo thứ tự lớp.
+    runtime: str | None = Field(None, pattern=r"^(onnx|tflite|openvino)$")
+    labels: list[str] = Field(default_factory=list, max_length=1000)
     status: Status = Status.DRAFT
     approvals: list[Approval] = Field(default_factory=list)
     history: list[Event] = Field(default_factory=list)
