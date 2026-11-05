@@ -1,5 +1,5 @@
 # Chạy thử trên máy phát triển: một điểm "country" (VN) và một "core".
-# Neo4j và Qdrant đã khai báo sẵn cho các bước sau (đồ thị tri thức, tìm kiếm theo nghĩa).
+# Neo4j (--profile graph) và Qdrant (--profile vector) bật khi cần.
 services:
   agrimind-vn:
     build: .
@@ -7,6 +7,11 @@ services:
       AGRIMIND_ROLE: country
       AGRIMIND_COUNTRY: VN
       AGRIMIND_LLM_URL: ${AGRIMIND_LLM_URL:-}
+      AGRIMIND_QDRANT_URL: ${AGRIMIND_QDRANT_URL:-}
+      AGRIMIND_EMBED_URL: ${AGRIMIND_EMBED_URL:-}
+      # Nexagri trong nước: kiểm tra trại đã đồng ý chia sẻ dữ liệu chưa.
+      NEXAGRI_TENANT_URL: ${NEXAGRI_TENANT_URL:-}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
     ports: ["8000:8000"]
   agrimind-core:
     build: .

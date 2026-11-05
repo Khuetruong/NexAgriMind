@@ -31,6 +31,8 @@ def tokenize(text: str) -> list[str]:
 class Hit:
     chunk: Chunk
     score: float
+    # None = dùng ngưỡng điểm của trợ lý (BM25); True/False = bộ tìm tự quyết (vector, gộp).
+    relevant: bool | None = None
 
 
 class BM25Retriever:

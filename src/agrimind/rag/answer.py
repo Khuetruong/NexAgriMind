@@ -11,11 +11,14 @@ Quy tắc an toàn được kiểm tra bằng mã, không chỉ dặn trong lờ
 
 from __future__ import annotations
 
+import json
+from typing import Protocol
+
 from pydantic import BaseModel, Field
 
 from ..kg.models import Certainty
 from .llm import LLM
-from .retriever import BM25Retriever, Hit
+from .retriever import Hit
 
 SYSTEM_PROMPT = """Bạn là trợ lý khoa học nông nghiệp AgriMind.
 Chỉ dùng các nguồn được cung cấp, đánh dấu [S1], [S2]...
@@ -26,6 +29,10 @@ Nếu nguồn không đủ, đặt confidence = "insufficient" và nói cần th
 Trả về JSON với các khóa: conclusion (chuỗi), evidence (danh sách {claim, source}),
 confidence (high|medium|low|insufficient), assumptions (danh sách), validation (danh sách),
 expert_check (danh sách). Trả lời bằng tiếng Việt."""
+
+
+class Retriever(Protocol):
+    def search(self, query: str, k: int = 5, domains: list[str] | None = None) -> list[Hit]: ...
 
 
 class EvidenceItem(BaseModel):
@@ -45,10 +52,12 @@ class Answer(BaseModel):
     expert_check: list[str] = Field(default_factory=list)
     refused: bool = False
     dropped_citations: int = 0
+    # True khi dữ liệu trang trại (đã được trại đồng ý chia sẻ) có trong lời nhắc.
+    farm_data_used: bool = False
 
 
 class Assistant:
-    def __init__(self, retriever: BM25Retriever, llm: LLM, k: int = 5, min_score: float = 1.0) -> None:
+    def __init__(self, retriever: Retriever, llm: LLM, k: int = 5, min_score: float = 1.0) -> None:
         self.retriever = retriever
         self.llm = llm
         self.k = k
@@ -64,9 +73,9 @@ class Assistant:
             refused=True,
         )
 
-    def ask(self, question: str, domains: list[str] | None = None) -> Answer:
+    def ask(self, question: str, domains: list[str] | None = None, farm_context: dict | None = None) -> Answer:
         hits = self.retriever.search(question, k=self.k, domains=domains)
-        hits = [h for h in hits if h.score >= self.min_score]
+        hits = [h for h in hits if (h.relevant if h.relevant is not None else h.score >= self.min_score)]
         if not hits:
             return self._refuse(question, "Kho tài liệu chưa có nguồn đủ liên quan.")
 
@@ -74,8 +83,16 @@ class Assistant:
         user = "Câu hỏi: " + question + "\n\nNguồn:\n" + "\n".join(
             f"[{sid}] {h.chunk.title}: {h.chunk.text}" for sid, h in sources.items()
         )
+        if farm_context:
+            # Dữ liệu trại chỉ để hiểu bối cảnh; không phải nguồn khoa học nên không có mã [S].
+            user += (
+                "\n\nDữ liệu trang trại (bối cảnh, KHÔNG phải nguồn khoa học, không trích làm [S]):\n"
+                + json.dumps(farm_context, ensure_ascii=False, default=str)[:4000]
+            )
         raw = self.llm.complete_json(SYSTEM_PROMPT, user)
-        return self._validate(question, raw, sources)
+        ans = self._validate(question, raw, sources)
+        ans.farm_data_used = bool(farm_context)
+        return ans
 
     @staticmethod
     def _validate(question: str, raw: dict, sources: dict[str, Hit]) -> Answer:

@@ -17,8 +17,9 @@ Thiết kế theo bộ Master Blueprint A01–A10. Kế hoạch tổng: https://
 |---|---|---|
 | 1. Khung dự án | toàn bộ, `.github/workflows/ci.yml` | Có |
 | 2. Kho tài liệu khoa học | `src/agrimind/corpus` | Bộ nạp + kiểm tra giấy phép; chưa có tài liệu thật |
-| 3. Trợ lý hỏi đáp (RAG) | `src/agrimind/rag`, `src/agrimind/api` | BM25 + Qwen3 qua vLLM (API tương thích OpenAI); chạy thử được với `StubLLM` |
-| 4. Đồ thị tri thức | `src/agrimind/kg`, `data/kg` | Cấu trúc + đồ thị mẫu "tôm giảm ăn" (chưa chuyên gia duyệt) |
+| 3. Trợ lý hỏi đáp (RAG) | `src/agrimind/rag`, `src/agrimind/api` | BM25, thêm tìm theo nghĩa (Qdrant + bge-m3) gộp bằng RRF; Qwen3 qua vLLM; chạy thử được với `StubLLM` |
+| 4. Đồ thị tri thức | `src/agrimind/kg`, `data/kg` | Cấu trúc + đồ thị mẫu "tôm giảm ăn" (chưa chuyên gia duyệt); nạp Neo4j bằng `agrimind-kg` |
+| 6. Đồng ý dữ liệu (phía AgriMind) | `src/agrimind/consent` | Điểm trong nước chỉ dùng dữ liệu trại khi trại đã bật trong Nexagri; hỏi Nexagri không được thì coi như chưa đồng ý |
 | 5. Bộ chấm điểm | `src/agrimind/eval`, `benchmarks` | Chấm tự động 4 tiêu chí; bộ câu hỏi v0 là bản nháp |
 
 Tài liệu trong `tests/fixtures` là **mẫu kiểm thử**, không phải tri thức khoa học.
@@ -35,6 +36,23 @@ uvicorn agrimind.api.app:app --reload   # http://localhost:8000/docs
 ```
 
 Nối mô hình thật: chạy vLLM với Qwen3 rồi đặt `AGRIMIND_LLM_URL=http://<máy>:8000/v1`, `AGRIMIND_LLM_MODEL=Qwen/Qwen3-8B`.
+
+Tìm theo nghĩa: chạy Qdrant (`docker compose --profile vector up qdrant`) và một dịch vụ embedding tương thích OpenAI chạy `BAAI/bge-m3`, rồi:
+
+```bash
+export AGRIMIND_QDRANT_URL=http://localhost:6333 AGRIMIND_EMBED_URL=http://<máy>:8080/v1
+agrimind-index tests/fixtures/corpus     # chỉ nhúng tài liệu có giấy phép thương mại
+```
+
+Qdrant hoặc embedding hỏng thì trợ lý tự quay về BM25, không ngừng dịch vụ.
+
+Đồ thị tri thức vào Neo4j (`docker compose --profile graph up neo4j`):
+
+```bash
+AGRIMIND_NEO4J_PASSWORD=agrimind-dev agrimind-kg data/kg/*.yaml --neo4j-url http://localhost:7474
+```
+
+Nối Nexagri (chỉ điểm `country`): đặt `NEXAGRI_TENANT_URL` (dịch vụ tenant của Nexagri) và `INTERNAL_SERVICE_KEY` (cùng khoá với Nexagri). Dữ liệu trại gửi kèm câu hỏi chỉ được dùng khi trại đã bật chia sẻ. Nexagri có thể báo bật/tắt ngay qua `POST /v1/internal/consent-events`.
 
 ## Thêm tài liệu
 
