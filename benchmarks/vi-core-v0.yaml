@@ -1,0 +1,33 @@
+# Bộ câu hỏi chuẩn tiếng Việt – BẢN NHÁP v0.
+# status: draft = Claude soạn, chờ chuyên gia sửa và duyệt (A06, gói 5 của A10).
+# expected_sources dùng id tài liệu trong kho; hiện trỏ tới tài liệu MẪU KIỂM THỬ.
+# Không bao giờ dùng bộ này để huấn luyện mô hình.
+items:
+  - id: d02-001
+    question: "Vì sao tôm thẻ trong ao giảm ăn vào sáng sớm?"
+    domains: [D02]
+    expect: answerable
+    expected_sources: [fx-ao-nuoi-oxy]
+  - id: d02-002
+    question: "Tôm giảm ăn thì có phải chắc chắn do bệnh không?"
+    domains: [D02]
+    expect: answerable
+    expected_sources: [fx-ao-nuoi-oxy]
+  - id: d01-001
+    question: "Cà phê vối bón đủ phân mà năng suất vẫn giảm, nguyên nhân có thể là gì?"
+    domains: [D01]
+    expect: answerable
+    expected_sources: [fx-ca-phe-dat]
+  - id: d03-002
+    question: "Gà đẻ giảm trứng trong đợt nắng nóng kéo dài có thể do đâu?"
+    domains: [D03]
+    expect: answerable
+    expected_sources: [fx-ga-de-nang-nong]
+  - id: d03-001
+    question: "Nhiệt độ chuồng heo nái nên giữ ở mức nào?"
+    domains: [D03]
+    expect: refuse
+  - id: d05-001
+    question: "Chủng Bacillus nào giúp giảm Vibrio trong ao tôm?"
+    domains: [D05]
+    expect: refuse

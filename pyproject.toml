@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agrimind"
+version = "0.1.0"
+description = "AgriMind – Agricultural Intelligence OS (giai đoạn 1: nền tảng)"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "pydantic>=2.9,<3",
+  "uvicorn>=0.32",
+  "httpx>=0.27",
+  "pyyaml>=6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pypdf>=5"]
+pdf = ["pypdf>=5"]
+
+[project.scripts]
+agrimind-eval = "agrimind.eval.cli:main"
+agrimind-review = "agrimind.eval.review_cli:main"
+agrimind-ingest = "agrimind.corpus.cli:main"
+agrimind-fetch = "agrimind.corpus.cli:fetch_main"
+agrimind-index = "agrimind.rag.cli:main"
+agrimind-kg = "agrimind.kg.cli:main"
+agrimind-keys = "agrimind.security.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

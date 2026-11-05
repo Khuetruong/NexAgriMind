@@ -1,0 +1,54 @@
+# Đồ thị mẫu trồng trọt (D01, D04): "cà phê vối năng suất giảm dù bón đủ phân".
+# CẤU TRÚC MẪU: mọi quan hệ ở mức bằng chứng D, chưa chuyên gia duyệt.
+# Chuyên gia cây trồng (gói 9 của A10) cần thay bằng nguồn khoa học thật.
+entities:
+  - {id: sp-coffea-canephora, type: species, name_vi: "Cà phê vối", scientific_name: "Coffea canephora", domains: [D01]}
+  - {id: env-ph-dat-thap, type: env_factor, name_vi: "pH đất thấp (chua)", domains: [D01, D04]}
+  - {id: env-thieu-nuoc-mua-kho, type: env_factor, name_vi: "Thiếu nước mùa khô", domains: [D01, D04, D06]}
+  - {id: pa-tuyen-trung-re, type: pathogen, name_vi: "Tuyến trùng hại rễ", domains: [D01]}
+  - {id: pr-bon-voi, type: practice, name_vi: "Bón vôi cải tạo đất", domains: [D01, D04]}
+  - {id: out-hap-thu-dinh-duong-kem, type: outcome, name_vi: "Cây hấp thu dinh dưỡng kém", domains: [D01]}
+  - {id: out-nang-suat-ca-phe-giam, type: outcome, name_vi: "Năng suất cà phê giảm", aliases_vi: ["cà phê mất mùa"], domains: [D01]}
+  - {id: out-la-vang, type: outcome, name_vi: "Lá vàng", domains: [D01]}
+
+relations:
+  - id: r-ph-hapthu
+    subject: env-ph-dat-thap
+    type: increases_risk_of
+    object: out-hap-thu-dinh-duong-kem
+    conditions: ["đất đỏ bazan bị chua hoá sau nhiều năm bón phân hoá học"]
+    evidence: [{source: "Ví dụ minh họa (tài liệu mẫu fx-ca-phe-dat)", grade: D, note: "cần nguồn khoa học"}]
+    certainty: low
+  - id: r-hapthu-nangsuat
+    subject: out-hap-thu-dinh-duong-kem
+    type: increases_risk_of
+    object: out-nang-suat-ca-phe-giam
+    evidence: [{source: "Ví dụ minh họa (tài liệu mẫu fx-ca-phe-dat)", grade: D}]
+    certainty: low
+  - id: r-nuoc-nangsuat
+    subject: env-thieu-nuoc-mua-kho
+    type: increases_risk_of
+    object: out-nang-suat-ca-phe-giam
+    conditions: ["giai đoạn ra hoa, đậu quả"]
+    evidence: [{source: "Ví dụ minh họa (tài liệu mẫu fx-ca-phe-dat)", grade: D}]
+    certainty: low
+  - id: r-tuyentrung-nangsuat
+    subject: pa-tuyen-trung-re
+    type: causes
+    object: out-nang-suat-ca-phe-giam
+    conditions: ["mật độ tuyến trùng cao trong đất quanh rễ"]
+    evidence: [{source: "Ví dụ minh họa (tài liệu mẫu fx-ca-phe-dat)", grade: D}]
+    certainty: low
+  - id: r-bonvoi-ph
+    subject: pr-bon-voi
+    type: decreases_risk_of
+    object: env-ph-dat-thap
+    conditions: ["sau khi phân tích đất xác nhận đất chua"]
+    evidence: [{source: "Ví dụ minh họa (tài liệu mẫu fx-ca-phe-dat)", grade: D}]
+    certainty: low
+  - id: r-lavang-nangsuat
+    subject: out-la-vang
+    type: correlates_with
+    object: out-nang-suat-ca-phe-giam
+    evidence: [{source: "Ví dụ minh họa: thường thấy cùng lúc, chưa chứng minh nhân quả", grade: E}]
+    certainty: low

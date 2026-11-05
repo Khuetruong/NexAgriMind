@@ -1,0 +1,34 @@
+# Chạy thử trên máy phát triển: một điểm "country" (VN) và một "core".
+# Neo4j (--profile graph) và Qdrant (--profile vector) bật khi cần.
+services:
+  agrimind-vn:
+    build: .
+    environment:
+      AGRIMIND_ROLE: country
+      AGRIMIND_COUNTRY: VN
+      AGRIMIND_LLM_URL: ${AGRIMIND_LLM_URL:-}
+      AGRIMIND_QDRANT_URL: ${AGRIMIND_QDRANT_URL:-}
+      AGRIMIND_EMBED_URL: ${AGRIMIND_EMBED_URL:-}
+      # Nexagri trong nước: kiểm tra trại đã đồng ý chia sẻ dữ liệu chưa.
+      AGRIMIND_CORE_URL: http://agrimind-core:8000
+      AGRIMIND_CORE_KEY: ${AGRIMIND_CORE_KEY:-}
+      AGRIMIND_CLIENTS_FILE: ${AGRIMIND_CLIENTS_FILE:-}
+      NEXAGRI_TENANT_URL: ${NEXAGRI_TENANT_URL:-}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
+    ports: ["8000:8000"]
+  agrimind-core:
+    build: .
+    environment:
+      AGRIMIND_ROLE: core
+      AGRIMIND_LLM_URL: ${AGRIMIND_LLM_URL:-}
+    ports: ["8001:8000"]
+  neo4j:
+    image: neo4j:5.26-community
+    environment:
+      NEO4J_AUTH: neo4j/agrimind-dev
+    ports: ["7474:7474", "7687:7687"]
+    profiles: [graph]
+  qdrant:
+    image: qdrant/qdrant:v1.12.5
+    ports: ["6333:6333"]
+    profiles: [vector]

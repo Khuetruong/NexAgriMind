@@ -1,0 +1,69 @@
+# Đồ thị mẫu theo ví dụ trong đề án AgriMind: "vì sao tôm giảm ăn".
+# Đây là CẤU TRÚC MẪU. Mọi quan hệ đang ở mức bằng chứng D, chưa được chuyên gia duyệt.
+# Chuyên gia thủy sản (gói 9 của A10) cần thay bằng nguồn khoa học thật và nâng mức tin cậy.
+entities:
+  - {id: sp-litopenaeus-vannamei, type: species, name_vi: "Tôm thẻ chân trắng", scientific_name: "Litopenaeus vannamei", domains: [D02]}
+  - {id: env-do-thap, type: env_factor, name_vi: "Oxy hòa tan thấp", domains: [D02, D04]}
+  - {id: env-nh3-cao, type: env_factor, name_vi: "NH3 cao", domains: [D02, D04]}
+  - {id: env-thoi-tiet-doi, type: env_factor, name_vi: "Thời tiết thay đổi đột ngột", domains: [D02, D06]}
+  - {id: pr-thuc-an-kem, type: practice, name_vi: "Thức ăn kém chất lượng", domains: [D02, D08]}
+  - {id: pa-wssv, type: pathogen, name_vi: "Virus đốm trắng (WSSV)", domains: [D02]}
+  - {id: pa-vibrio, type: pathogen, name_vi: "Vibrio", domains: [D02, D05]}
+  - {id: dz-ahpnd, type: disease, name_vi: "Hoại tử gan tụy cấp (AHPND)", domains: [D02]}
+  - {id: out-giam-an, type: outcome, name_vi: "Tôm giảm ăn", aliases_vi: ["tôm bỏ ăn", "tôm ăn yếu"], domains: [D02]}
+  - {id: out-mau-nuoc-dam, type: outcome, name_vi: "Màu nước đậm", domains: [D02]}
+
+relations:
+  - id: r-do-giam-an
+    subject: env-do-thap
+    type: increases_risk_of
+    object: out-giam-an
+    conditions: ["kéo dài nhiều giờ", "thường vào ban đêm, sáng sớm"]
+    evidence: [{source: "Ví dụ minh họa trong đề án AgriMind (04/11/2026)", grade: D, note: "cần bổ sung nguồn khoa học"}]
+    certainty: low
+  - id: r-nh3-giam-an
+    subject: env-nh3-cao
+    type: increases_risk_of
+    object: out-giam-an
+    conditions: ["pH và nhiệt độ cao làm NH3 độc hơn"]
+    evidence: [{source: "Ví dụ minh họa trong đề án AgriMind (04/11/2026)", grade: D}]
+    certainty: low
+  - id: r-thoitiet-giam-an
+    subject: env-thoi-tiet-doi
+    type: increases_risk_of
+    object: out-giam-an
+    evidence: [{source: "Ví dụ minh họa trong đề án AgriMind (04/11/2026)", grade: D}]
+    certainty: low
+  - id: r-thucan-giam-an
+    subject: pr-thuc-an-kem
+    type: increases_risk_of
+    object: out-giam-an
+    evidence: [{source: "Ví dụ minh họa trong đề án AgriMind (04/11/2026)", grade: D}]
+    certainty: low
+  - id: r-wssv-giam-an
+    subject: pa-wssv
+    type: causes
+    object: out-giam-an
+    conditions: ["tôm đã nhiễm bệnh"]
+    evidence: [{source: "Ví dụ minh họa trong đề án AgriMind (04/11/2026)", grade: D}]
+    certainty: low
+  - id: r-vibrio-ahpnd
+    subject: pa-vibrio
+    type: causes
+    object: dz-ahpnd
+    conditions: ["chủng Vibrio mang gen độc lực; không phải mọi Vibrio"]
+    evidence: [{source: "Ví dụ minh họa trong đề án AgriMind (04/11/2026)", grade: D}]
+    certainty: low
+  - id: r-ahpnd-giam-an
+    subject: dz-ahpnd
+    type: causes
+    object: out-giam-an
+    evidence: [{source: "Ví dụ minh họa trong đề án AgriMind (04/11/2026)", grade: D}]
+    certainty: low
+  - id: r-maunuoc-giam-an
+    subject: out-mau-nuoc-dam
+    type: correlates_with
+    object: out-giam-an
+    conditions: ["chỉ là quan sát đi kèm, không phải nguyên nhân"]
+    evidence: [{source: "Ví dụ minh họa trong đề án AgriMind (04/11/2026)", grade: E}]
+    certainty: low

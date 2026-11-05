@@ -1,0 +1,10 @@
+# Các bên được gọi API. Tạo từng dòng bằng:
+#   agrimind-keys new nexagri-vn --name "Nexagri Việt Nam" --scopes ask:general,ask:farm,consent:events --countries VN --rate 300
+# Tệp chỉ chứa MÃ BĂM của khoá. Sao thành clients.yaml (không đưa lên git).
+clients:
+  - id: nexagri-vn
+    name: Nexagri Việt Nam
+    key_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+    scopes: [ask:general, ask:farm, consent:events]
+    countries: [VN]
+    rate_per_minute: 300
