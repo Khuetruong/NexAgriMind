@@ -10,7 +10,8 @@ Quy tắc:
 Quyền (scope):
   ask:general     hỏi câu hỏi chung (không dữ liệu trại) – cấp được cho đối tác
   ask:farm        hỏi kèm mã trại / dữ liệu trại – chỉ cấp cho Nexagri trong nước
-  consent:events  báo bật/tắt chia sẻ dữ liệu – chỉ cấp cho Nexagri trong nước
+  consent:events  báo bật/tắt chia sẻ dữ liệu, yêu cầu xoá – chỉ cấp cho Nexagri trong nước
+  farmdata:write  gửi dữ liệu sản xuất của trại đã đồng ý – chỉ cấp cho Nexagri trong nước
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ class Scope(str, Enum):
     ASK_GENERAL = "ask:general"
     ASK_FARM = "ask:farm"
     CONSENT_EVENTS = "consent:events"
+    FARMDATA_WRITE = "farmdata:write"
 
 
 class ApiClient(BaseModel):

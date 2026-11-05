@@ -20,6 +20,9 @@ Biến môi trường:
   AGRIMIND_MAX_BODY     kích thước yêu cầu tối đa (byte), mặc định 65536
   AGRIMIND_CORPUS_DIR   thư mục tài liệu (.md có phần đầu YAML)
   AGRIMIND_KG_DIR       thư mục đồ thị tri thức (.yaml), mặc định data/kg
+  AGRIMIND_TWIN_RULES   thư mục/tệp quy tắc cảnh báo, mặc định data/twin
+  AGRIMIND_LAKE_DIR     (chỉ country) kho dữ liệu trại đã bỏ nhận dạng; trống = không nhận dữ liệu trại
+  AGRIMIND_PSEUDONYM_KEY (chỉ country) khoá bí mật ≥ 32 ký tự để tạo mã giả cho trại
   AGRIMIND_LLM_URL      URL API tương thích OpenAI (vLLM chạy Qwen3); bỏ trống = StubLLM
   AGRIMIND_LLM_MODEL    tên mô hình, mặc định Qwen/Qwen3-8B
   AGRIMIND_QDRANT_URL   bật tìm theo nghĩa (gộp với BM25); cần thêm AGRIMIND_EMBED_URL
@@ -36,6 +39,7 @@ import time
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import BaseModel, Field
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 
@@ -44,7 +48,11 @@ from ..consent.gate import ConsentEvent, DenyAll, NexagriConsentGate
 from ..corpus.ingest import build_chunks, load_directory
 from ..gateway.egress import EgressStation
 from ..gateway.routing import AskRequest, Mode, choose_mode, redact
+from ..farmdata.lake import FarmDataLake, FarmRecord
 from ..kg.store import KnowledgeGraph
+from ..research.design import (PlotAssignment, randomize_blocks, sample_size_means,
+                               sample_size_proportions)
+from ..twin.rules import Alert, Reading, UnitState, evaluate, load_rules
 from ..rag.answer import Answer, Assistant, PossibleCause
 from ..rag.llm import OpenAICompatibleLLM, StubLLM
 from ..rag.retriever import BM25Retriever
@@ -65,6 +73,9 @@ class Settings:
         self.max_body = int(os.getenv("AGRIMIND_MAX_BODY", "65536"))
         self.corpus_dir = Path(os.getenv("AGRIMIND_CORPUS_DIR", "tests/fixtures/corpus"))
         self.kg_dir = os.getenv("AGRIMIND_KG_DIR", "data/kg")
+        self.twin_rules = os.getenv("AGRIMIND_TWIN_RULES", "data/twin")
+        self.lake_dir = os.getenv("AGRIMIND_LAKE_DIR", "")
+        self.pseudonym_key = os.getenv("AGRIMIND_PSEUDONYM_KEY", "")
         self.llm_url = os.getenv("AGRIMIND_LLM_URL", "")
         self.llm_model = os.getenv("AGRIMIND_LLM_MODEL", "Qwen/Qwen3-8B")
         self.qdrant_url = os.getenv("AGRIMIND_QDRANT_URL", "")
@@ -122,6 +133,40 @@ _SECURITY_HEADERS = {
 }
 
 
+# --- dạng yêu cầu/ trả lời của các API phụ ---------------------------------
+class RecordBatch(BaseModel):
+    records: list[FarmRecord] = Field(min_length=1, max_length=1000)
+
+
+class TwinRequest(BaseModel):
+    farm_id: str
+    sector: str | None = None
+    readings: list[Reading] = Field(min_length=1, max_length=5000)
+
+
+class TwinResponse(BaseModel):
+    states: list[UnitState]
+    alerts: list[Alert]
+    note: str
+
+
+class SampleSizeRequest(BaseModel):
+    kind: str = Field(pattern="^(means|proportions)$")
+    delta: float | None = None
+    sd: float | None = None
+    p1: float | None = None
+    p2: float | None = None
+    alpha: float = 0.05
+    power: float = 0.8
+
+
+class DesignRequest(BaseModel):
+    treatments: list[str] = Field(min_length=2, max_length=20)
+    blocks: list[str] = Field(min_length=1, max_length=200)
+    reps_per_block: int = Field(1, ge=1, le=20)
+    seed: int = 0
+
+
 def create_app(settings: Settings | None = None, consent_gate=None, registry: ClientRegistry | None = None,
                audit: AuditLog | None = None, egress: EgressStation | None = None,
                limiter: RateLimiter | None = None) -> FastAPI:
@@ -135,6 +180,11 @@ def create_app(settings: Settings | None = None, consent_gate=None, registry: Cl
     gate = consent_gate or make_consent_gate(s)
     if egress is None and s.role == "country" and s.core_url:
         egress = EgressStation(s.core_url, s.core_key, audit)
+
+    lake = None
+    if s.role == "country" and s.lake_dir:
+        lake = FarmDataLake(Path(s.lake_dir), s.pseudonym_key)
+    rules = load_rules(Path(s.twin_rules)) if s.twin_rules and Path(s.twin_rules).exists() else []
 
     docs = {} if not s.production else {"docs_url": None, "redoc_url": None, "openapi_url": None}
     app = FastAPI(title=f"AgriMind ({s.role})", version="0.3.0", **docs)
@@ -207,7 +257,7 @@ def create_app(settings: Settings | None = None, consent_gate=None, registry: Cl
                             fields=sorted(map(str, req.attached_data))[:50])
             else:
                 audit.write("farm_data_dropped", client=client.id, tenant=req.farm_id, reason="no_consent")
-        ans = assistant.ask(question, domains=req.domains, farm_context=farm_context)
+        ans = assistant.ask(question, domains=req.domains, farm_context=farm_context, lang=req.lang)
         # Kho trong nước chưa đủ → hỏi Core qua trạm kiểm soát (chỉ câu hỏi đã bỏ nhận dạng).
         if ans.refused and egress is not None:
             core = egress.ask_core(req.question, req.domains, req.private_terms, caller=client.id)
@@ -247,6 +297,74 @@ def create_app(settings: Settings | None = None, consent_gate=None, registry: Cl
         audit.write("consent_event", client=client.id, tenant=ev.tenant_id, enabled=ev.enabled,
                     version=ev.consent_version)
         return Response(status_code=204)
+
+    # --- dữ liệu trang trại (chỉ trong nước) ---------------------------------
+
+    @app.post("/v1/farmdata/records")
+    def farmdata_ingest(batch: RecordBatch, client: ApiClient = Depends(authenticate)) -> dict:
+        if s.role != "country" or lake is None:
+            raise HTTPException(404)
+        need(client, Scope.FARMDATA_WRITE)
+        allowed: dict[str, bool] = {}
+        keep: list[FarmRecord] = []
+        for r in batch.records:
+            if r.tenant_id not in allowed:
+                allowed[r.tenant_id] = gate.allowed(r.tenant_id)
+            if allowed[r.tenant_id]:
+                keep.append(r)
+        written, flagged = lake.write(keep) if keep else (0, 0)
+        for tid, ok in allowed.items():
+            audit.write("farm_data_ingested" if ok else "farm_data_rejected", client=client.id, tenant=tid,
+                        count=sum(r.tenant_id == tid for r in batch.records))
+        return {"accepted": written, "flagged": flagged, "rejected_no_consent": len(batch.records) - written}
+
+    @app.delete("/v1/farmdata/tenants/{tenant_id}")
+    def farmdata_erase(tenant_id: str, client: ApiClient = Depends(authenticate)) -> dict:
+        if s.role != "country" or lake is None:
+            raise HTTPException(404)
+        need(client, Scope.CONSENT_EVENTS)
+        erased = lake.erase(tenant_id)
+        audit.write("farm_data_erased", client=client.id, tenant=tenant_id, existed=erased)
+        return {"erased": erased}
+
+    # --- bản sao số mức 1–2: phản ánh + cảnh báo ---------------------------
+
+
+    @app.post("/v1/twin/evaluate", response_model=TwinResponse)
+    def twin_evaluate(req: TwinRequest, client: ApiClient = Depends(authenticate)) -> TwinResponse:
+        if s.role != "country":
+            raise HTTPException(403, "Dữ liệu trang trại chỉ xử lý ở điểm trong nước.")
+        need(client, Scope.ASK_FARM)
+        if not gate.allowed(req.farm_id):
+            raise HTTPException(403, "Trại chưa bật chia sẻ dữ liệu cho AgriMind.")
+        states, alerts = evaluate(req.readings, rules, req.sector)
+        audit.write("farm_data_used", client=client.id, tenant=req.farm_id, purpose="twin",
+                    fields=sorted({k for r in req.readings for k in r.values})[:50])
+        return TwinResponse(states=states, alerts=alerts,
+                            note="Chỉ là đề xuất; người phụ trách trại quyết định. Hệ thống không tự điều khiển thiết bị.")
+
+    # --- phòng thí nghiệm AI: thiết kế thí nghiệm --------------------------
+
+    @app.post("/v1/research/sample-size")
+    def research_sample_size(req: SampleSizeRequest, client: ApiClient = Depends(authenticate)) -> dict:
+        need(client, Scope.ASK_GENERAL)
+        try:
+            if req.kind == "means":
+                n = sample_size_means(req.delta or 0, req.sd or 0, req.alpha, req.power)
+            else:
+                n = sample_size_proportions(req.p1 or 0, req.p2 or 0, req.alpha, req.power)
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        return {"per_group": n, "note": "Ước tính ban đầu; nhà thống kê duyệt trước khi làm thí nghiệm."}
+
+
+    @app.post("/v1/research/design", response_model=list[PlotAssignment])
+    def research_design(req: DesignRequest, client: ApiClient = Depends(authenticate)) -> list[PlotAssignment]:
+        need(client, Scope.ASK_GENERAL)
+        try:
+            return randomize_blocks(req.treatments, req.blocks, req.reps_per_block, req.seed)
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
 
     return app
 

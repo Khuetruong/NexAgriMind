@@ -70,6 +70,16 @@ Mọi đường `/v1/...` cần khoá: `Authorization: Bearer amk_<mã bên>.<ch
 
 Điểm trong nước hỏi Core khi kho trong nước chưa đủ: đặt `AGRIMIND_CORE_URL` và `AGRIMIND_CORE_KEY` (khoá do Core cấp, chỉ quyền `ask:general`).
 
+## Khung cho các giai đoạn sau (chưa cần dữ liệu thật)
+
+| Phần | Thư mục | Có gì |
+|---|---|---|
+| Kho mô hình + cửa duyệt (A06) | `src/agrimind/models` | Giấy phép thương mại, đánh giá tách theo trại/mùa/vùng/thời gian, phải hơn mốc, chuyên gia ký theo mức rủi ro; mô hình học từ dữ liệu trại không ra khỏi nước; Core ký gói phát hành bằng Ed25519, nước cài chỉ khi chữ ký và mã băm đúng (`agrimind-models`) |
+| Kho dữ liệu trại trong nước (A03, A07) | `src/agrimind/farmdata` | `POST /v1/farmdata/records` (quyền `farmdata:write`): chỉ nhận trại đã đồng ý, đổi mã trại/lô thành mã giả, làm tròn toạ độ, lọc ghi chú, kiểm tra khoảng giá trị; `DELETE /v1/farmdata/tenants/{id}` xoá theo yêu cầu |
+| Bản sao số mức 1–2 (A08) | `src/agrimind/twin`, `data/twin` | `POST /v1/twin/evaluate`: tình trạng + xu hướng từng ao/lô/chuồng, cảnh báo theo ngưỡng (bản nháp, chờ chuyên gia), chỉ đề xuất, mức 3 cần chuyên gia xác nhận |
+| Phòng thí nghiệm AI (A05) | `src/agrimind/research` | Tính số mẫu, chia lô ngẫu nhiên theo khối, kiểm định hoán vị, phiếu giả thuyết ghi trước khi làm; `POST /v1/research/sample-size`, `/v1/research/design` |
+| Đa ngôn ngữ | `src/agrimind/rag/answer.py` | `"lang": "en"` để trả lời tiếng Anh |
+
 ## Việc còn lại cần người (không làm được bằng mã)
 
 - Chuyên gia chọn nguồn (`data/sources`), duyệt đồ thị, sửa bộ câu hỏi và chấm câu trả lời (gói 5, 9).

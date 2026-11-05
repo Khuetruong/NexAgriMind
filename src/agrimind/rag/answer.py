@@ -31,6 +31,33 @@ Trả về JSON với các khóa: conclusion (chuỗi), evidence (danh sách {cl
 confidence (high|medium|low|insufficient), assumptions (danh sách), validation (danh sách),
 expert_check (danh sách). Trả lời bằng tiếng Việt."""
 
+SYSTEM_PROMPT_EN = """You are AgriMind, an agricultural science assistant.
+Use only the sources provided, cite them as [S1], [S2]...
+Do not jump to conclusions: list the possibilities and state your assumptions.
+Correlation is not causation.
+Never give specific drug or chemical doses; those need an agronomist or veterinarian.
+If the sources are not enough, set confidence = "insufficient" and say what data is needed.
+Return JSON with keys: conclusion (string), evidence (list of {claim, source}),
+confidence (high|medium|low|insufficient), assumptions (list), validation (list),
+expert_check (list). Answer in English."""
+
+PROMPTS = {"vi": SYSTEM_PROMPT, "en": SYSTEM_PROMPT_EN}
+
+_TEXT = {
+    "vi": {
+        "refuse": "Chưa đủ căn cứ để trả lời. ", "no_source": "Kho tài liệu chưa có nguồn đủ liên quan.",
+        "validate": "Bổ sung dữ liệu hoặc tài liệu liên quan rồi hỏi lại.",
+        "expert": "Chuyển câu hỏi cho chuyên gia của trung tâm phụ trách.",
+        "sources": "Nguồn", "question": "Câu hỏi",
+    },
+    "en": {
+        "refuse": "Not enough evidence to answer. ", "no_source": "The library has no sufficiently relevant source.",
+        "validate": "Add relevant data or documents and ask again.",
+        "expert": "Forward the question to an expert of the responsible centre.",
+        "sources": "Sources", "question": "Question",
+    },
+}
+
 
 class Retriever(Protocol):
     def search(self, query: str, k: int = 5, domains: list[str] | None = None) -> list[Hit]: ...
@@ -81,13 +108,14 @@ class Assistant:
         self.k = k
         self.min_score = min_score
 
-    def _refuse(self, question: str, reason: str) -> Answer:
+    def _refuse(self, question: str, reason: str, lang: str = "vi") -> Answer:
+        t = _TEXT.get(lang, _TEXT["vi"])
         return Answer(
             question=question,
-            conclusion="Chưa đủ căn cứ để trả lời. " + reason,
+            conclusion=t["refuse"] + reason,
             confidence=Certainty.INSUFFICIENT,
-            validation=["Bổ sung dữ liệu hoặc tài liệu liên quan rồi hỏi lại."],
-            expert_check=["Chuyển câu hỏi cho chuyên gia của trung tâm phụ trách."],
+            validation=[t["validate"]],
+            expert_check=[t["expert"]],
             refused=True,
         )
 
@@ -104,14 +132,16 @@ class Assistant:
                 ))
         return out[:12]
 
-    def ask(self, question: str, domains: list[str] | None = None, farm_context: dict | None = None) -> Answer:
+    def ask(self, question: str, domains: list[str] | None = None, farm_context: dict | None = None,
+            lang: str = "vi") -> Answer:
+        lang = lang if lang in PROMPTS else "vi"
         hits = self.retriever.search(question, k=self.k, domains=domains)
         hits = [h for h in hits if (h.relevant if h.relevant is not None else h.score >= self.min_score)]
         if not hits:
-            return self._refuse(question, "Kho tài liệu chưa có nguồn đủ liên quan.")
+            return self._refuse(question, _TEXT[lang]["no_source"], lang)
 
         sources = {f"S{i + 1}": h for i, h in enumerate(hits)}
-        user = "Câu hỏi: " + question + "\n\nNguồn:\n" + "\n".join(
+        user = _TEXT[lang]["question"] + ": " + question + "\n\n" + _TEXT[lang]["sources"] + ":\n" + "\n".join(
             f"[{sid}] {h.chunk.title}: {h.chunk.text}" for sid, h in sources.items()
         )
         causes = self.possible_causes(question)
@@ -126,7 +156,7 @@ class Assistant:
                 "\n\nDữ liệu trang trại (bối cảnh, KHÔNG phải nguồn khoa học, không trích làm [S]):\n"
                 + json.dumps(farm_context, ensure_ascii=False, default=str)[:4000]
             )
-        raw = self.llm.complete_json(SYSTEM_PROMPT, user)
+        raw = self.llm.complete_json(PROMPTS[lang], user)
         ans = self._validate(question, raw, sources)
         ans.farm_data_used = bool(farm_context)
         ans.possible_causes = causes

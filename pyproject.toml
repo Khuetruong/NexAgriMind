@@ -13,6 +13,7 @@ dependencies = [
   "uvicorn>=0.32",
   "httpx>=0.27",
   "pyyaml>=6",
+  "cryptography>=43",
 ]
 
 [project.optional-dependencies]
@@ -27,6 +28,7 @@ agrimind-fetch = "agrimind.corpus.cli:fetch_main"
 agrimind-index = "agrimind.rag.cli:main"
 agrimind-kg = "agrimind.kg.cli:main"
 agrimind-keys = "agrimind.security.cli:main"
+agrimind-models = "agrimind.models.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
